@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
-from app.applications.garden.dtos import PlantCreate, PlantResponse
+from app.applications.garden.dtos import PlantCreate, PlantResponse, PlantUpdate, PlantPartialUpdate
 from app.applications.garden.services import GardenService
 from app.domains.interfaces.garden_repository import PlantRepository
 from app.infrastructures.database import get_db
@@ -62,4 +62,69 @@ def get_user_plants(
     Get all plants belonging to the user.
     """
     plants = service.get_user_plants(user_id=DUMMY_USER_ID)
-    return plants 
+    return plants
+
+@router.get("/plants/{plant_id}", response_model=PlantResponse)
+def get_plant_by_id(
+    plant_id: UUID,
+    service: GardenService = Depends(get_garden_service),
+):
+    """
+    Get a specific plant by ID.
+    """
+    plant = service.get_plant_by_id(plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    return plant
+
+@router.put("/plants/{plant_id}", response_model=PlantResponse)
+def update_plant(
+    plant_id: UUID,
+    plant_data: PlantUpdate,
+    service: GardenService = Depends(get_garden_service),
+):
+    """
+    Update a plant completely (PUT method).
+    """
+    plant = service.update_plant(
+        plant_id=plant_id,
+        name=plant_data.name,
+        species=plant_data.species
+    )
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    return plant
+
+@router.patch("/plants/{plant_id}", response_model=PlantResponse)
+def update_plant_partial(
+    plant_id: UUID,
+    plant_data: PlantPartialUpdate,
+    service: GardenService = Depends(get_garden_service),
+):
+    """
+    Update a plant partially (PATCH method).
+    """
+    plant = service.update_plant_partial(
+        plant_id=plant_id,
+        name=plant_data.name,
+        species=plant_data.species
+    )
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    return plant
+
+@router.delete("/plants/{plant_id}", status_code=204)
+def delete_plant(
+    plant_id: UUID,
+    service: GardenService = Depends(get_garden_service),
+):
+    """
+    Delete a plant.
+    """
+    # Check if plant exists before deleting
+    plant = service.get_plant_by_id(plant_id)
+    if not plant:
+        raise HTTPException(status_code=404, detail="Plant not found")
+    
+    service.remove_plant(plant_id)
+    return None 
